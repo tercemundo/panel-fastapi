@@ -1,0 +1,32 @@
+---
+- name: Cargar variables sensibles desde archivo temporal
+  ansible.builtin.include_vars:
+    file: "{{ vars_file }}"
+  when: vars_file is defined
+
+- name: Crear usuario con shell bash y home directory
+  ansible.builtin.user:
+    name: "{{ username }}"
+    shell: /bin/bash
+    create_home: yes
+    state: present
+
+- name: Asignar contraseña al usuario
+  ansible.builtin.shell: |
+    echo "{{ username }}:{{ password }}" | chpasswd
+  no_log: true
+
+- name: Agregar usuario al grupo sudo
+  ansible.builtin.user:
+    name: "{{ username }}"
+    groups: sudo
+    append: yes
+
+- name: Crear archivo sudoers para el usuario
+  ansible.builtin.copy:
+    dest: "/etc/sudoers.d/{{ username }}"
+    content: "{{ username }} ALL=(ALL) NOPASSWD:ALL\n"
+    owner: root
+    group: root
+    mode: '0440'
+    validate: /usr/sbin/visudo -cf %s

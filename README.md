@@ -1,218 +1,363 @@
-# 🖥️ Admin Control Panel
+# 🛠️ Admin Control Panel v2
 
-Panel de administración de sistemas Linux con interfaz web moderna. Permite gestionar usuarios sudo, instalar paquetes APT, y monitorear recursos del sistema en tiempo real desde un navegador.
-
----
-
-## ✨ Funcionalidades
-
-| Función | Descripción |
-|---|---|
-| 👤 **Gestión de Usuarios** | Crea usuarios del sistema con acceso sudo y entrada en `/etc/sudoers.d/` |
-| 📦 **Gestor de Paquetes** | Instala paquetes del sistema via `apt` con output en tiempo real |
-| 💾 **Monitoreo de Disco** | Muestra espacio usado / total en la partición raíz |
-| 🧠 **Monitoreo de RAM** | Muestra el porcentaje de uso de memoria en tiempo real |
-| 🔁 **Reinicio de Servidor** | Botón para reiniciar el sistema desde la UI |
+Panel de administración de sistemas Linux con **FastAPI + Ansible + React (Vite)**. Permite gestionar usuarios, instalar paquetes APT y controlar el sistema desde una interfaz web, delegando todas las operaciones al sistema operativo mediante **Ansible Playbooks**.
 
 ---
 
-## 🗂️ Estructura del Proyecto
+## 📐 Arquitectura
+
+```
+┌─────────────────────────────────────────────────────┐
+│                    FRONTEND                         │
+│          React + Vite + TailwindCSS                 │
+│               http://localhost:5173                 │
+└──────────────────────┬──────────────────────────────┘
+                       │ HTTP (axios)
+                       ▼
+┌─────────────────────────────────────────────────────┐
+│                    BACKEND                          │
+│          FastAPI + SQLAlchemy + SQLite              │
+│               http://localhost:8000                 │
+│                                                     │
+│  POST /users/    → run_playbook(create_user.yml)    │
+│  POST /packages/ → run_playbook(install_package.yml)│
+│  POST /reboot/   → run_playbook(reboot.yml)         │
+│  GET  /logs/     → últimas N líneas del log         │
+└──────────────────────┬──────────────────────────────┘
+                       │ ansible-playbook (subprocess)
+                       ▼
+┌─────────────────────────────────────────────────────┐
+│                   ANSIBLE                           │
+│         Roles ejecutados sobre localhost            │
+│                                                     │
+│  manage_users      → user, chpasswd, sudoers        │
+│  install_packages  → apt module                     │
+│  reboot_system     → shutdown -r                    │
+└─────────────────────────────────────────────────────┘
+```
+
+---
+
+## 🧰 Stack tecnológico
+
+| Capa | Tecnología | Versión |
+|------|-----------|---------|
+| Frontend | React | 18.x |
+| Frontend bundler | Vite | 5.x |
+| Estilos | TailwindCSS | 3.x |
+| Iconos | Lucide React | 0.300 |
+| HTTP Client | Axios | 1.x |
+| Backend API | FastAPI | 0.115 |
+| ASGI Server | Uvicorn | 0.32 |
+| ORM | SQLAlchemy | 2.0 |
+| Base de datos | SQLite | (archivo local) |
+| Automatización | Ansible | 9.x |
+| Auth hashing | Passlib + bcrypt | 1.7 / 3.2 |
+| Métricas sistema | psutil | 6.x |
+| YAML (python) | PyYAML | 6.x |
+
+---
+
+## 📁 Estructura del proyecto
 
 ```
 admin-panel/
-├── backend/                    # API FastAPI (Python)
-│   ├── main.py                 # Endpoints REST: /users/, /packages/, /system/, /reboot/
-│   ├── database.py             # Configuración SQLAlchemy + SQLite
-│   ├── models.py               # Modelos ORM (User, Package)
-│   ├── schemas.py              # Esquemas Pydantic para validación
-│   ├── crud.py                 # Lógica de base de datos
-│   ├── test_main.py            # Tests con pytest + httpx (97% cobertura)
-│   ├── requirements.txt        # Dependencias Python
-│   └── data/
-│       └── admin.db            # Base de datos SQLite (se crea automáticamente)
+├── startup.sh                    # Script para levantar todo
+├── docker-compose.yml            # (opcional) compose file
 │
-├── frontend/                   # App React (Vite + Tailwind CSS)
-│   ├── src/
-│   │   ├── App.jsx             # Componente principal con UI tipo Accordion
-│   │   └── index.css           # Estilos globales Tailwind
-│   ├── index.html
-│   ├── package.json
-│   ├── vite.config.js
-│   ├── tailwind.config.js
-│   └── postcss.config.js
+├── backend/
+│   ├── main.py                   # API FastAPI + lógica de Ansible
+│   ├── crud.py                   # Operaciones de base de datos
+│   ├── models.py                 # Modelos SQLAlchemy
+│   ├── schemas.py                # Esquemas Pydantic
+│   ├── database.py               # Conexión SQLite
+│   ├── requirements.txt          # Dependencias Python
+│   ├── admin_panel.log           # Log de actividad (auto-generado)
+│   ├── data/
+│   │   └── admin.db              # Base de datos SQLite
+│   ├── venv/                     # Entorno virtual Python
+│   └── ansible/
+│       ├── ansible.cfg           # Configuración de Ansible
+│       ├── inventory/
+│       │   └── hosts.ini         # Inventario: localhost
+│       ├── create_user.yml       # Playbook: crear usuario
+│       ├── install_package.yml   # Playbook: instalar paquete
+│       ├── reboot.yml            # Playbook: reiniciar sistema
+│       └── roles/
+│           ├── manage_users/     # Role: gestión de usuarios
+│           ├── install_packages/ # Role: gestión de paquetes
+│           └── reboot_system/    # Role: reinicio del sistema
 │
-├── docker-compose.yml          # Solo para el frontend (backend corre nativo)
-├── start_backend.sh            # Script para arrancar el backend como root
-└── README.md
+└── frontend/
+    ├── src/
+    │   ├── App.jsx               # Componente principal
+    │   └── index.css
+    ├── package.json
+    └── vite.config.js
 ```
 
 ---
 
-## 🚀 Cómo correr el proyecto
+## ✅ Requisitos previos
 
-### Prerrequisitos
+Antes de instalar, asegurate de tener:
 
-- Python 3.11+
-- Node.js 20+
-- Sistema Linux con `apt` (Debian/Ubuntu)
+- **Sistema operativo**: Linux (Ubuntu 22.04+ / Zorin OS / Debian)
+- **Privilegios**: El usuario debe poder ejecutar `sudo` sin contraseña (o tener acceso root)
+- **Git**: Para clonar el repositorio
+- **Internet**: Para descargar dependencias
 
-### 1. Instalar dependencias del Backend
+Verificá que todo esté disponible:
 
 ```bash
-cd admin-panel/backend
+# Verificar Python 3.10+
+python3 --version
+
+# Verificar Node.js 18+
+node --version
+
+# Verificar npm
+npm --version
+
+# Verificar Ansible
+ansible --version
+```
+
+---
+
+## 🚀 Instalación paso a paso
+
+### Paso 1 – Clonar el repositorio
+
+```bash
+git clone <url-del-repositorio>
+cd admin-panel
+```
+
+### Paso 2 – Instalar Ansible (si no está instalado)
+
+```bash
+sudo apt update
+sudo apt install -y ansible
+ansible --version   # debe mostrar ansible 9.x o superior
+```
+
+### Paso 3 – Configurar el backend Python
+
+```bash
+cd backend
+
+# Crear entorno virtual
 python3 -m venv venv
+
+# Activar el entorno virtual
 source venv/bin/activate
+
+# Instalar dependencias
 pip install -r requirements.txt
+
+# Volver al directorio raíz
+cd ..
 ```
 
-### 2. Arrancar el Backend (como root)
-
-El backend necesita permisos de root para crear usuarios del sistema e instalar paquetes. Desde el directorio raíz del proyecto:
+### Paso 4 – Configurar el frontend Node.js
 
 ```bash
-sudo /home/devops/fastapi/admin-panel/backend/venv/bin/uvicorn main:app \
-    --host 0.0.0.0 \
-    --port 8000 \
-    --app-dir /home/devops/fastapi/admin-panel/backend
-```
+cd frontend
 
-> ⚠️ **Importante:** reemplaza `/home/devops` con tu propio home si es diferente.
-
-La API quedará disponible en: `http://localhost:8000`  
-Documentación interactiva (Swagger): `http://localhost:8000/docs`
-
-### 3. Arrancar el Frontend
-
-En una terminal separada:
-
-```bash
-cd admin-panel/frontend
+# Instalar dependencias
 npm install
-npm run dev
+
+# Volver al directorio raíz
+cd ..
 ```
 
-El panel quedará disponible en: **`http://localhost:5173`**
+### Paso 5 – Inicializar la base de datos
+
+La base de datos SQLite se crea automáticamente al iniciar el servidor. No requiere configuración adicional.
+
+Si es la primera vez, asegurate que el directorio `data/` tenga permisos correctos:
+
+```bash
+mkdir -p backend/data
+chmod 755 backend/data
+```
+
+### Paso 6 – Levantar el sistema
+
+```bash
+./startup.sh
+```
+
+Esto levanta:
+- **Backend** en `http://localhost:8000`
+- **Frontend** en `http://localhost:5173`
+
+Para detener ambos servicios: `Ctrl + C`
 
 ---
 
-## 🔌 API Endpoints
+## 🔑 Configuración de sudoers (requerido)
+
+El backend necesita ejecutar Ansible como root. Para evitar que pida contraseña cada vez, configurá sudoers para el usuario `devops`:
+
+```bash
+# Ejecutar como root:
+echo "devops ALL=(ALL) NOPASSWD:ALL" | sudo tee /etc/sudoers.d/devops
+sudo chmod 0440 /etc/sudoers.d/devops
+
+# Verificar que no haya errores de sintaxis:
+sudo visudo -cf /etc/sudoers.d/devops
+```
+
+> ⚠️ **Atención**: Esto le da privilegios completos al usuario `devops`. En producción, restringir a los comandos específicos de Ansible.
+
+---
+
+## 🌐 Endpoints de la API
 
 | Método | Ruta | Descripción |
-|---|---|---|
-| `GET` | `/system/` | Retorna uso de disco y RAM |
-| `POST` | `/users/` | Crea un usuario del sistema con sudo |
-| `POST` | `/packages/` | Instala un paquete via APT |
-| `POST` | `/reboot/` | Reinicia el servidor |
+|--------|------|-------------|
+| `GET` | `/system/` | Info del sistema (disco, RAM) |
+| `POST` | `/users/` | Crear usuario Linux con sudoers |
+| `POST` | `/packages/` | Instalar paquete APT |
+| `POST` | `/reboot/` | Reiniciar el sistema |
+| `GET` | `/logs/` | Ver log de actividad |
+| `GET` | `/logs/?lines=50` | Últimas 50 líneas del log |
 
-### Ejemplo: Crear usuario
-
-```bash
-curl -X POST http://localhost:8000/users/ \
-  -H "Content-Type: application/json" \
-  -d '{"name": "juan", "password": "MiPass123!", "repeat_password": "MiPass123!"}'
-```
-
-Resultado: Se crea el usuario `juan` en el sistema y se escribe `/etc/sudoers.d/juan` con:
-```
-juan ALL=(ALL) NOPASSWD: ALL
-```
-
-### Ejemplo: Instalar paquete
+### Ejemplos con curl
 
 ```bash
+# Ver info del sistema
+curl http://localhost:8000/system/
+
+# Instalar un paquete
 curl -X POST http://localhost:8000/packages/ \
   -H "Content-Type: application/json" \
   -d '{"name": "htop"}'
+
+# Crear usuario
+curl -X POST http://localhost:8000/users/ \
+  -H "Content-Type: application/json" \
+  -d '{"name": "juan", "password": "MiPass123", "repeat_password": "MiPass123"}'
+
+# Ver últimas 100 líneas del log
+curl http://localhost:8000/logs/?lines=100
 ```
 
 ---
 
-## 🧪 Correr Tests del Backend
+## 📋 Playbooks de Ansible
+
+Los playbooks están en `backend/ansible/`. Podés ejecutarlos directamente desde la terminal para testing:
 
 ```bash
-cd admin-panel/backend
-source venv/bin/activate
-pytest test_main.py -v --cov=. --cov-report=term-missing
+cd backend/ansible
+
+# Instalar un paquete (modo test/check, no aplica cambios):
+ansible-playbook -i inventory/hosts.ini install_package.yml \
+  --check --extra-vars "pkg_name=htop"
+
+# Instalar un paquete (real):
+ansible-playbook -i inventory/hosts.ini install_package.yml \
+  --extra-vars "pkg_name=htop"
+
+# Verificar sintaxis de todos los playbooks:
+ansible-playbook --syntax-check -i inventory/hosts.ini create_user.yml
+ansible-playbook --syntax-check -i inventory/hosts.ini install_package.yml
+ansible-playbook --syntax-check -i inventory/hosts.ini reboot.yml
+```
+
+> 💡 **Nota de seguridad**: Las contraseñas se pasan mediante un archivo YAML temporal en `/tmp/` (modo 0600) y se eliminan automáticamente después de la ejecución. Nunca aparecen en `ps aux`.
+
+---
+
+## 📊 Logs y debugging
+
+### Ver logs en tiempo real
+
+```bash
+# En otra terminal, mientras el servidor corre:
+tail -f backend/admin_panel.log
+```
+
+### Ejemplo de salida de log durante instalación de paquete
+
+```
+[2026-03-17 17:22:26] INFO  POST /packages/ → pkg='links'
+[2026-03-17 17:22:26] INFO  ▶ Iniciando playbook: install_package.yml
+[2026-03-17 17:22:27] INFO  [INSTALL_PACKAGE] TASK [Gathering Facts]
+[2026-03-17 17:22:30] INFO  [INSTALL_PACKAGE] ok: [localhost]
+[2026-03-17 17:22:30] INFO  [INSTALL_PACKAGE] TASK [install_packages : Instalar paquete links]
+[2026-03-17 17:23:14] INFO  [INSTALL_PACKAGE] changed: [localhost]
+[2026-03-17 17:23:14] INFO  ✔ Playbook install_package.yml completado exitosamente (rc=0)
+```
+
+### Via API
+
+```bash
+curl http://localhost:8000/logs/?lines=50
 ```
 
 ---
 
-## 🛠️ Stack Tecnológico
+## 🔧 Solución de problemas comunes
 
-**Backend:**
-- [FastAPI](https://fastapi.tiangolo.com/) — Framework REST en Python
-- [SQLAlchemy](https://www.sqlalchemy.org/) — ORM para SQLite
-- [Passlib + bcrypt](https://passlib.readthedocs.io/) — Hash seguro de contraseñas
-- [psutil](https://github.com/giampaolo/psutil) — Monitoreo de recursos del sistema
-- [pytest + httpx](https://pytest.org/) — Testing con 97% de cobertura
+### Error: Permission denied en `.vite/deps`
 
-**Frontend:**
-- [React 18](https://react.dev/) — UI con componentes funcionales y hooks
-- [Vite](https://vitejs.dev/) — Build tool ultra-rápido con HMR
-- [Tailwind CSS](https://tailwindcss.com/) — Estilado utilitario
-- [Lucide React](https://lucide.dev/) — Librería de iconos
-- [Axios](https://axios-http.com/) — Cliente HTTP
+```bash
+sudo chown -R $(whoami):$(whoami) frontend/node_modules/.vite
+```
+
+### Error: No se puede abrir la base de datos SQLite
+
+```bash
+sudo chown -R devops:devops backend/data/
+chmod 755 backend/data/
+```
+
+### Error: Ansible no encuentra el inventario
+
+```bash
+# Verificar que exista:
+cat backend/ansible/inventory/hosts.ini
+# Debe contener:
+# [local]
+# localhost ansible_connection=local
+```
+
+### El servidor necesita sudo para instalar paquetes
+
+```bash
+# Verificar sudoers:
+sudo -l | grep NOPASSWD
+# Si no aparece, configurar según la sección "Configuración de sudoers"
+```
 
 ---
 
-## 📤 Subir a GitHub
-
-### 1. Inicializar el repositorio Git
-
-Desde el directorio raíz del proyecto:
+## 📦 Dependencias del sistema
 
 ```bash
-cd /home/devops/fastapi/admin-panel
-git init
+# Instalar todo de una vez:
+sudo apt update && sudo apt install -y \
+  python3 \
+  python3-pip \
+  python3-venv \
+  nodejs \
+  npm \
+  ansible
 ```
 
-### 2. Crear `.gitignore`
+---
 
-```bash
-cat > .gitignore << 'EOF'
-# Python
-backend/venv/
-backend/__pycache__/
-backend/.pytest_cache/
-backend/.coverage
-backend/data/admin.db
+## 🤝 Contribución
 
-# Node
-frontend/node_modules/
-frontend/dist/
+1. Clonar el repositorio
+2. Crear una rama: `git checkout -b feature/mi-feature`
+3. Hacer cambios y commitear: `git commit -m "feat: descripción"`
+4. Abrir un Pull Request
 
-# Misc
-*.log
-.DS_Store
-EOF
-```
+---
 
-### 3. Hacer el primer commit
-
-```bash
-git add .
-git commit -m "feat: admin panel inicial con FastAPI + React"
-```
-
-### 4. Crear el repositorio en GitHub
-
-1. Andá a [github.com/new](https://github.com/new)
-2. Ponele un nombre, por ejemplo `admin-panel`
-3. Dejá el repo **vacío** (sin README, sin .gitignore)
-4. Copiá la URL del repo (ejemplo: `https://github.com/tu-usuario/admin-panel.git`)
-
-### 5. Subir el código
-
-```bash
-git remote add origin https://github.com/TU-USUARIO/admin-panel.git
-git branch -M main
-git push -u origin main
-```
-
-Listo — tu código estará publicado en GitHub. Para actualizaciones futuras:
-
-```bash
-git add .
-git commit -m "descripción del cambio"
-git push
-```
+*Admin Control Panel v2 — Backend powered by Ansible Playbooks*

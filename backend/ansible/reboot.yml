@@ -1,0 +1,6 @@
+---
+- name: Playbook - Reiniciar sistema
+  hosts: local
+  become: true
+  roles:
+    - reboot_system

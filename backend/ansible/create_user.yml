@@ -1,0 +1,6 @@
+---
+- name: Playbook - Crear usuario del sistema
+  hosts: local
+  become: true
+  roles:
+    - manage_users

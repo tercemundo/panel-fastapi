@@ -1,0 +1,6 @@
+---
+- name: Playbook - Instalar paquete APT
+  hosts: local
+  become: true
+  roles:
+    - install_packages

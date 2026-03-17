@@ -1,0 +1,6 @@
+---
+- name: Programar reinicio del sistema
+  ansible.builtin.command: shutdown -r +0
+  async: 1
+  poll: 0
+  ignore_errors: yes
