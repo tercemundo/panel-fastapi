@@ -1,0 +1,43 @@
+# Python
+__pycache__/
+.pytest_cache/
+*.pyc
+*.pyo
+*.pyd
+.coverage
+htmlcov/
+*.egg-info/
+dist/
+build/
+
+# Virtual environment
+venv/
+.venv/
+env/
+
+# SQLite database
+data/
+*.db
+*.sqlite3
+
+# Node
+node_modules/
+frontend/dist/
+.npm/
+
+# Logs
+*.log
+nohup.out
+
+# OS / Editor
+.DS_Store
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+
+# Secrets / ENV
+.env
+.env.*
+!.env.example
