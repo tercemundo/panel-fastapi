@@ -62,7 +62,8 @@ Panel de administración de sistemas Linux con **FastAPI + Ansible + React (Vite
 
 ```
 admin-panel/
-├── startup.sh                    # Script para levantar todo
+├── startup.sh                    # Script para levantar todo y autoinstalar dependencias
+├── stop_all.sh                   # Script para detener frontend y backend de forma segura
 ├── docker-compose.yml            # (opcional) compose file
 │
 ├── backend/
@@ -113,7 +114,7 @@ Verificá que todo esté disponible:
 # Verificar Python 3.10+
 python3 --version
 
-# Verificar Node.js 18+
+# Verificar Node.js 22.x
 node --version
 
 # Verificar npm
@@ -193,7 +194,13 @@ Esto levanta:
 - **Backend** en `http://localhost:8000`
 - **Frontend** en `http://localhost:5173`
 
-Para detener ambos servicios: `Ctrl + C`
+> 💡 **Nota**: A partir de la última actualización, `startup.sh` autodetectará e instalará automáticamente Ansible, Node.js 22 y dependencias como entornos virtuales Python si no los encuentra instalados.
+
+Para detener ambos servicios de la mejor manera, abrí otra terminal y usá:
+```bash
+./stop_all.sh
+```
+O también podés presionar `Ctrl + C` en la terminal donde está levantado el sistema.
 
 ---
 
@@ -338,15 +345,16 @@ sudo -l | grep NOPASSWD
 
 ## 📦 Dependencias del sistema
 
-```bash
-# Instalar todo de una vez:
+# (Opcional, ya que ./startup.sh ahora lo instala automáticamente)
 sudo apt update && sudo apt install -y \
   python3 \
   python3-pip \
   python3-venv \
+  python3.12-venv \
   nodejs \
   npm \
-  ansible
+  ansible \
+  sshpass
 ```
 
 ---

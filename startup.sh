@@ -6,9 +6,15 @@
 
 set -e
 
-ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-BACKEND="$ROOT/backend"
-FRONTEND="$ROOT/frontend"
+# ── Node.js 22 Installation ──────────────────
+echo -e "\n\033[1;33mInstalando Node.js 22 y dependencias del sistema...\033[0m"
+curl -fsSL https://deb.nodesource.com/setup_22.x | sudo -E bash -
+sudo apt-get install -y nodejs ansible sshpass
+node -v
+npm -v
+
+BACKEND="./backend"
+FRONTEND="./frontend"
 
 # Colores
 GREEN="\033[0;32m"
@@ -20,7 +26,26 @@ echo -e "${CYAN}━━━━━━━━━━━━━━━━━━━━━�
 echo -e "${GREEN}   Admin Panel – Startup Script v2     ${RESET}"
 echo -e "${CYAN}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${RESET}"
 
+# ── Configuración SSH ────────────────────────
+./trabar_llaves.sh
+
 # ── Backend ──────────────────────────────────
+echo -e "\n${YELLOW}Instalando dependencias del Backend...${RESET}"
+cd "$BACKEND"
+if [ ! -f "venv/bin/activate" ]; then
+    echo -e "Creando entorno virtual..."
+    rm -rf venv 2>/dev/null || true
+    if ! python3 -m venv venv; then
+        echo -e "\n${YELLOW}Falta paquete python3-venv. Instalando vía apt...${RESET}"
+        sudo apt-get update
+        sudo apt-get install -y python3-venv python3.12-venv
+        rm -rf venv 2>/dev/null || true
+        python3 -m venv venv
+    fi
+fi
+./venv/bin/pip install -r requirements.txt
+cd ..
+
 echo -e "\n${YELLOW}[1/2] Levantando Backend (FastAPI + Ansible)...${RESET}"
 echo -e "      ${CYAN}→ http://localhost:8000${RESET}"
 
@@ -34,6 +59,11 @@ BACKEND_PID=$!
 echo -e "      PID Backend: ${GREEN}$BACKEND_PID${RESET}"
 
 # ── Frontend ─────────────────────────────────
+echo -e "\n${YELLOW}Instalando dependencias del Frontend...${RESET}"
+cd "$FRONTEND"
+npm install
+cd ..
+
 echo -e "\n${YELLOW}[2/2] Levantando Frontend (Vite)...${RESET}"
 echo -e "      ${CYAN}→ http://localhost:5173${RESET}"
 
